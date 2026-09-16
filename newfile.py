@@ -1,7 +1,7 @@
-import telebot
-from telebot import types
 import json
 import os
+import telebot
+from telebot import types
 
 # ==========================================
 # SOZLAMALAR
@@ -27,9 +27,8 @@ def load_data(file_name, default):
         try:
             with open(file_name, "r", encoding="utf-8") as file:
                 return json.load(file)
-        except:
+        except Exception:
             return default
-
     return default
 
 
@@ -52,7 +51,6 @@ def save_users():
 # ==========================================
 
 def add_user(user_id):
-
     if user_id not in users:
         users.append(user_id)
         save_users()
@@ -63,19 +61,16 @@ def add_user(user_id):
 # ==========================================
 
 def main_menu(user_id):
-
     markup = types.ReplyKeyboardMarkup(
         resize_keyboard=True,
         row_width=4
     )
 
     buttons = []
-
     for i in range(1, 14):
         buttons.append(types.KeyboardButton(str(i)))
 
     markup.add(*buttons)
-
     markup.add(
         types.KeyboardButton("📢 Yangiliklar"),
         types.KeyboardButton("ℹ️ Bot haqida")
@@ -95,12 +90,10 @@ def main_menu(user_id):
 # ==========================================
 
 def admin_menu():
-
     markup = types.ReplyKeyboardMarkup(
         resize_keyboard=True,
         row_width=2
     )
-
     markup.add(
         types.KeyboardButton("➕ Odam qo'shish"),
         types.KeyboardButton("✏️ Ma'lumotni o'zgartirish"),
@@ -109,7 +102,6 @@ def admin_menu():
         types.KeyboardButton("👥 Foydalanuvchilar"),
         types.KeyboardButton("⬅️ Asosiy menyu")
     )
-
     return markup
 
 
@@ -119,13 +111,12 @@ def admin_menu():
 
 @bot.message_handler(commands=["start"])
 def start(message):
-
     add_user(message.from_user.id)
-
     bot.send_message(
         message.chat.id,
-        "⚽ <b>7-A FUTBOL STATISTIKA BOTI</b>\n\n"
-        "Futbolchini ko'rish uchun 1–13 raqamlardan birini bosing.",
+        """⚽ <b>7-A FUTBOL STATISTIKA BOTI</b>
+
+Futbolchini ko'rish uchun 1–13 raqamlardan birini bosing.""",
         parse_mode="HTML",
         reply_markup=main_menu(message.from_user.id)
     )
@@ -137,27 +128,22 @@ def start(message):
 
 @bot.message_handler(commands=["admin"])
 def admin_command(message):
-
     if message.from_user.id != ADMIN_ID:
-        bot.send_message(
-            message.chat.id,
-            "❌ Sizda admin huquqi yo'q."
-        )
+        bot.send_message(message.chat.id, "❌ Sizda admin huquqi yo'q.")
         return
 
     bot.send_message(
         message.chat.id,
-        "🔐 <b>ADMIN PANEL</b>\n\n"
-        "Bu yerdan futbolchilarni boshqarishingiz mumkin.",
+        """🔐 <b>ADMIN PANEL</b>
+
+Bu yerdan futbolchilarni boshqarishingiz mumkin.""",
         parse_mode="HTML",
         reply_markup=admin_menu()
     )
 
 
-@bot.message_handler(func=lambda message:
-                     message.text == "🔐 ADMIN PANEL")
+@bot.message_handler(func=lambda message: message.text == "🔐 ADMIN PANEL")
 def admin_button(message):
-
     if message.from_user.id != ADMIN_ID:
         return
 
@@ -170,285 +156,209 @@ def admin_button(message):
 
 
 # ==========================================
-# Odam qo'shish
+# Odam qo'shish va Tahrirlash
 # ==========================================
 
-@bot.message_handler(func=lambda message:
-                     message.text == "➕ Odam qo'shish")
+@bot.message_handler(func=lambda message: message.text == "➕ Odam qo'shish")
 def add_start(message):
-
     if message.from_user.id != ADMIN_ID:
         return
 
     msg = bot.send_message(
         message.chat.id,
-        "🔢 Qaysi raqamga futbolchi qo'shasiz?\n\n"
-        "1 dan 13 gacha raqam yuboring."
-    )
+        """🔢 Qaysi raqamga futbolchi qo'shasiz?
 
+1 dan 13 gacha raqam yuboring."""
+    )
     bot.register_next_step_handler(msg, add_number)
 
 
 def add_number(message):
-
     if message.from_user.id != ADMIN_ID:
         return
 
     number = message.text.strip()
-
     if not number.isdigit() or not 1 <= int(number) <= 13:
-
-        msg = bot.send_message(
-            message.chat.id,
-            "❌ Faqat 1–13 orasidagi raqamni yuboring."
-        )
-
+        msg = bot.send_message(message.chat.id, "❌ Faqat 1–13 orasidagi raqamni yuboring.")
         bot.register_next_step_handler(msg, add_number)
         return
 
     number = str(int(number))
+    msg = bot.send_message(
+        message.chat.id,
+        f"""✅ {number}-raqam tanlandi.
+
+👤 Endi futbolchining <b>ismini</b> yozing:""",
+        parse_mode="HTML"
+    )
+    bot.register_next_step_handler(msg, add_name, number)
+
+
+@bot.message_handler(func=lambda message: message.text == "✏️ Ma'lumotni o'zgartirish")
+def edit_start(message):
+    if message.from_user.id != ADMIN_ID:
+        return
 
     msg = bot.send_message(
         message.chat.id,
-        f"✅ {number}-raqam tanlandi.\n\n"
-        "👤 Endi futbolchining <b>ismini</b> yozing:",
+        """✏️ Qaysi raqamdagi futbolchi ma'lumotlarini o'zgartirasiz?
+1 dan 13 gacha raqam yuboring."""
+    )
+    bot.register_next_step_handler(msg, edit_choose_number)
+
+
+def edit_choose_number(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    number = message.text.strip()
+    if number not in players:
+        bot.send_message(
+            message.chat.id,
+            "❌ Bu raqamda hech qanday futbolchi topilmadi.",
+            reply_markup=admin_menu()
+        )
+        return
+
+    msg = bot.send_message(
+        message.chat.id,
+        f"""🔄 {number}-raqam tanlandi (Hozirgi: {players[number]['name']} {players[number]['surname']}).
+
+👤 Futbolchining yangi <b>ismini</b> yozing:""",
         parse_mode="HTML"
     )
-
-    bot.register_next_step_handler(
-        msg,
-        lambda m: add_name(m, number)
-    )
+    bot.register_next_step_handler(msg, add_name, number)
 
 
 def add_name(message, number):
-
     if message.from_user.id != ADMIN_ID:
         return
 
     name = message.text.strip()
-
-    msg = bot.send_message(
-        message.chat.id,
-        "👤 Familiyasini yozing:"
-    )
-
-    bot.register_next_step_handler(
-        msg,
-        lambda m: add_surname(m, number, name)
-    )
+    msg = bot.send_message(message.chat.id, "👤 Familiyasini yozing:")
+    bot.register_next_step_handler(msg, add_surname, number, name)
 
 
 def add_surname(message, number, name):
+    if message.from_user.id != ADMIN_ID:
+        return
 
     surname = message.text.strip()
-
-    msg = bot.send_message(
-        message.chat.id,
-        "🏫 Sinfini yozing:\nMasalan: 7-A"
-    )
-
-    bot.register_next_step_handler(
-        msg,
-        lambda m: add_class(m, number, name, surname)
-    )
+    msg = bot.send_message(message.chat.id, """🏫 Sinfini yozing:
+Masalan: 7-A""")
+    bot.register_next_step_handler(msg, add_class, number, name, surname)
 
 
 def add_class(message, number, name, surname):
+    if message.from_user.id != ADMIN_ID:
+        return
 
     class_name = message.text.strip()
-
-    msg = bot.send_message(
-        message.chat.id,
-        "⚽ Gollar sonini yozing:"
-    )
-
-    bot.register_next_step_handler(
-        msg,
-        lambda m: add_goals(m, number, name, surname, class_name)
-    )
+    msg = bot.send_message(message.chat.id, "🏟️ O'yinlar sonini yozing:")
+    bot.register_next_step_handler(msg, add_matches, number, name, surname, class_name)
 
 
-def add_goals(message, number, name, surname, class_name):
+def add_matches(message, number, name, surname, class_name):
+    if message.from_user.id != ADMIN_ID:
+        return
 
     if not message.text.isdigit():
-        msg = bot.send_message(
-            message.chat.id,
-            "❌ Gollarni raqam bilan yozing."
-        )
+        msg = bot.send_message(message.chat.id, "❌ O'yinlar sonini raqam bilan yozing.")
+        bot.register_next_step_handler(msg, add_matches, number, name, surname, class_name)
+        return
 
-        bot.register_next_step_handler(
-            msg,
-            lambda m: add_goals(
-                m, number, name, surname, class_name
-            )
-        )
+    matches = int(message.text)
+    msg = bot.send_message(message.chat.id, "⚽ Gollar sonini yozing:")
+    bot.register_next_step_handler(msg, add_goals, number, name, surname, class_name, matches)
+
+
+def add_goals(message, number, name, surname, class_name, matches):
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    if not message.text.isdigit():
+        msg = bot.send_message(message.chat.id, "❌ Gollarni raqam bilan yozing.")
+        bot.register_next_step_handler(msg, add_goals, number, name, surname, class_name, matches)
         return
 
     goals = int(message.text)
-
-    msg = bot.send_message(
-        message.chat.id,
-        "🎯 Assistlar sonini yozing:"
-    )
-
-    bot.register_next_step_handler(
-        msg,
-        lambda m: add_assists(
-            m, number, name, surname, class_name, goals
-        )
-    )
+    msg = bot.send_message(message.chat.id, "🎯 Assistlar sonini yozing:")
+    bot.register_next_step_handler(msg, add_assists, number, name, surname, class_name, matches, goals)
 
 
-def add_assists(message, number, name, surname, class_name, goals):
+def add_assists(message, number, name, surname, class_name, matches, goals):
+    if message.from_user.id != ADMIN_ID:
+        return
 
     if not message.text.isdigit():
-
-        msg = bot.send_message(
-            message.chat.id,
-            "❌ Assistni raqam bilan yozing."
-        )
-
-        bot.register_next_step_handler(
-            msg,
-            lambda m: add_assists(
-                m, number, name, surname, class_name, goals
-            )
-        )
+        msg = bot.send_message(message.chat.id, "❌ Assistni raqam bilan yozing.")
+        bot.register_next_step_handler(msg, add_assists, number, name, surname, class_name, matches, goals)
         return
 
     assists = int(message.text)
-
-    msg = bot.send_message(
-        message.chat.id,
-        "📏 Bo'yini yozing (cm):"
-    )
-
-    bot.register_next_step_handler(
-        msg,
-        lambda m: add_height(
-            m, number, name, surname,
-            class_name, goals, assists
-        )
-    )
+    msg = bot.send_message(message.chat.id, "📏 Bo'yini yozing (cm):")
+    bot.register_next_step_handler(msg, add_height, number, name, surname, class_name, matches, goals, assists)
 
 
-def add_height(message, number, name, surname,
-               class_name, goals, assists):
+def add_height(message, number, name, surname, class_name, matches, goals, assists):
+    if message.from_user.id != ADMIN_ID:
+        return
 
     if not message.text.isdigit():
-
-        msg = bot.send_message(
-            message.chat.id,
-            "❌ Bo'yni raqam bilan yozing.\nMasalan: 171"
-        )
-
-        bot.register_next_step_handler(
-            msg,
-            lambda m: add_height(
-                m, number, name, surname,
-                class_name, goals, assists
-            )
-        )
+        msg = bot.send_message(message.chat.id, """❌ Bo'yni raqam bilan yozing.
+Masalan: 171""")
+        bot.register_next_step_handler(msg, add_height, number, name, surname, class_name, matches, goals, assists)
         return
 
     height = int(message.text)
-
-    msg = bot.send_message(
-        message.chat.id,
-        "⚖️ Vaznini yozing (kg):"
-    )
-
-    bot.register_next_step_handler(
-        msg,
-        lambda m: add_weight(
-            m, number, name, surname,
-            class_name, goals, assists, height
-        )
-    )
+    msg = bot.send_message(message.chat.id, "⚖️ Vaznini yozing (kg):")
+    bot.register_next_step_handler(msg, add_weight, number, name, surname, class_name, matches, goals, assists, height)
 
 
-def add_weight(message, number, name, surname,
-               class_name, goals, assists, height):
+def add_weight(message, number, name, surname, class_name, matches, goals, assists, height):
+    if message.from_user.id != ADMIN_ID:
+        return
 
     if not message.text.isdigit():
-
-        msg = bot.send_message(
-            message.chat.id,
-            "❌ Vaznni raqam bilan yozing.\nMasalan: 55"
-        )
-
-        bot.register_next_step_handler(
-            msg,
-            lambda m: add_weight(
-                m, number, name, surname,
-                class_name, goals, assists, height
-            )
-        )
+        msg = bot.send_message(message.chat.id, """❌ Vaznni raqam bilan yozing.
+Masalan: 55""")
+        bot.register_next_step_handler(msg, add_weight, number, name, surname, class_name, matches, goals, assists, height)
         return
 
     weight = int(message.text)
-
     msg = bot.send_message(
         message.chat.id,
-        "🦶 Qaysi oyoqda o'ynaydi?\n\n"
-        "Masalan:\n"
-        "O'ng oyoq\n"
-        "Chap oyoq\n"
-        "Ikki oyoq"
+        """🦶 Qaysi oyoqda o'ynaydi?
+
+Masalan:
+O'ng oyoq
+Chap oyoq
+Ikki oyoq"""
     )
-
-    bot.register_next_step_handler(
-        msg,
-        lambda m: add_foot(
-            m, number, name, surname,
-            class_name, goals, assists,
-            height, weight
-        )
-    )
+    bot.register_next_step_handler(msg, add_foot, number, name, surname, class_name, matches, goals, assists, height, weight)
 
 
-def add_foot(message, number, name, surname,
-             class_name, goals, assists,
-             height, weight):
+def add_foot(message, number, name, surname, class_name, matches, goals, assists, height, weight):
+    if message.from_user.id != ADMIN_ID:
+        return
 
     foot = message.text.strip()
-
     msg = bot.send_message(
         message.chat.id,
-        "⭐ 5 ta yulduzdan nechta berasiz?\n\n"
-        "1, 2, 3, 4 yoki 5 yozing."
+        """⭐ 5 ta yulduzdan nechta berasiz?
+
+1, 2, 3, 4 yoki 5 yozing."""
     )
-
-    bot.register_next_step_handler(
-        msg,
-        lambda m: add_stars(
-            m, number, name, surname,
-            class_name, goals, assists,
-            height, weight, foot
-        )
-    )
+    bot.register_next_step_handler(msg, add_stars, number, name, surname, class_name, matches, goals, assists, height, weight, foot)
 
 
-def add_stars(message, number, name, surname,
-              class_name, goals, assists,
-              height, weight, foot):
+def add_stars(message, number, name, surname, class_name, matches, goals, assists, height, weight, foot):
+    if message.from_user.id != ADMIN_ID:
+        return
 
     if message.text not in ["1", "2", "3", "4", "5"]:
-
-        msg = bot.send_message(
-            message.chat.id,
-            "❌ Faqat 1 dan 5 gacha yozing."
-        )
-
-        bot.register_next_step_handler(
-            msg,
-            lambda m: add_stars(
-                m, number, name, surname,
-                class_name, goals, assists,
-                height, weight, foot
-            )
-        )
+        msg = bot.send_message(message.chat.id, "❌ Faqat 1 dan 5 gacha yozing.")
+        bot.register_next_step_handler(msg, add_stars, number, name, surname, class_name, matches, goals, assists, height, weight, foot)
         return
 
     stars = int(message.text)
@@ -457,6 +367,7 @@ def add_stars(message, number, name, surname,
         "name": name,
         "surname": surname,
         "class": class_name,
+        "matches": matches,
         "goals": goals,
         "assists": assists,
         "height": height,
@@ -464,21 +375,22 @@ def add_stars(message, number, name, surname,
         "foot": foot,
         "stars": stars
     }
-
     save_players()
 
     bot.send_message(
         message.chat.id,
-        f"✅ <b>Futbolchi qo'shildi!</b>\n\n"
-        f"🔢 Raqam: {number}\n"
-        f"👤 Ism: {name} {surname}\n"
-        f"🏫 Sinf: {class_name}\n"
-        f"⚽ Gollar: {goals}\n"
-        f"🎯 Assistlar: {assists}\n"
-        f"📏 Bo'y: {height} cm\n"
-        f"⚖️ Vazn: {weight} kg\n"
-        f"🦶 Oyoq: {foot}\n"
-        f"⭐ Bahosi: {'⭐' * stars}",
+        f"""✅ <b>Futbolchi ma'lumotlari saqlandi!</b>
+
+🔢 Raqam: {number}
+👤 Ism: {name} {surname}
+🏫 Sinf: {class_name}
+🏟️ O'yinlar: {matches}
+⚽ Gollar: {goals}
+🎯 Assistlar: {assists}
+📏 Bo'y: {height} cm
+⚖️ Vazn: {weight} kg
+🦶 Oyoq: {foot}
+⭐ Bahosi: {'⭐' * stars}""",
         parse_mode="HTML",
         reply_markup=admin_menu()
     )
@@ -488,36 +400,31 @@ def add_stars(message, number, name, surname,
 # RAQAM BOSILGANDA
 # ==========================================
 
-@bot.message_handler(func=lambda message:
-                     message.text in
-                     [str(i) for i in range(1, 14)])
+@bot.message_handler(func=lambda message: message.text in [str(i) for i in range(1, 14)])
 def player_info(message):
-
     add_user(message.from_user.id)
-
     number = message.text
 
-    # AGAR BU RAQAMDA FUTBOLCHI BO'LMASA
     if number not in players:
-
         bot.send_message(
             message.chat.id,
-            f"🔢 <b>{number}-raqam</b>\n\n"
-            "⚠️ Bu raqamga hali futbolchi qo'shilmagan.",
+            f"""🔢 <b>{number}-raqam</b>
+
+⚠️ Bu raqamga hali futbolchi qo'shilmagan.""",
             parse_mode="HTML",
             reply_markup=main_menu(message.from_user.id)
         )
-
         return
 
     p = players[number]
-
     stars = "⭐" * p["stars"] + "☆" * (5 - p["stars"])
+    matches_count = p.get("matches", 0)
 
     text = (
         f"⚽ <b>{p['name']} {p['surname']}</b>\n\n"
         f"🔢 Raqami: <b>{number}</b>\n"
         f"🏫 Sinfi: <b>{p['class']}</b>\n\n"
+        f"🏟️ O'yinlar soni: <b>{matches_count}</b>\n"
         f"⚽ Gollar: <b>{p['goals']}</b>\n"
         f"🎯 Assistlar: <b>{p['assists']}</b>\n"
         f"📏 Bo'yi: <b>{p['height']} cm</b>\n"
@@ -539,35 +446,27 @@ def player_info(message):
 # O'CHIRISH
 # ==========================================
 
-@bot.message_handler(func=lambda message:
-                     message.text == "🗑 Odamni o'chirish")
+@bot.message_handler(func=lambda message: message.text == "🗑 Odamni o'chirish")
 def delete_start(message):
-
     if message.from_user.id != ADMIN_ID:
         return
 
     msg = bot.send_message(
         message.chat.id,
-        "🗑 Qaysi raqamdagi odamni o'chirasiz?\n"
-        "1–13 raqam yuboring."
+        """🗑 Qaysi raqamdagi odamni o'chirasiz?
+1–13 raqam yuboring."""
     )
-
     bot.register_next_step_handler(msg, delete_player)
 
 
 def delete_player(message):
-
     if message.from_user.id != ADMIN_ID:
         return
 
-    number = message.text
-
+    number = message.text.strip()
     if number in players:
-
         name = players[number]["name"]
-
         del players[number]
-
         save_players()
 
         bot.send_message(
@@ -576,9 +475,7 @@ def delete_player(message):
             parse_mode="HTML",
             reply_markup=admin_menu()
         )
-
     else:
-
         bot.send_message(
             message.chat.id,
             "❌ Bu raqamda futbolchi yo'q.",
@@ -590,10 +487,8 @@ def delete_player(message):
 # FOYDALANUVCHILAR
 # ==========================================
 
-@bot.message_handler(func=lambda message:
-                     message.text == "👥 Foydalanuvchilar")
+@bot.message_handler(func=lambda message: message.text == "👥 Foydalanuvchilar")
 def users_count(message):
-
     if message.from_user.id != ADMIN_ID:
         return
 
@@ -608,10 +503,8 @@ def users_count(message):
 # YANGILIK
 # ==========================================
 
-@bot.message_handler(func=lambda message:
-                     message.text == "📢 Yangilik yuborish")
+@bot.message_handler(func=lambda message: message.text == "📢 Yangilik yuborish")
 def news_start(message):
-
     if message.from_user.id != ADMIN_ID:
         return
 
@@ -619,12 +512,10 @@ def news_start(message):
         message.chat.id,
         "📢 Yangilik matnini yuboring:"
     )
-
     bot.register_next_step_handler(msg, send_news)
 
 
 def send_news(message):
-
     if message.from_user.id != ADMIN_ID:
         return
 
@@ -632,26 +523,22 @@ def send_news(message):
     failed = 0
 
     for user_id in users:
-
         try:
-
             bot.send_message(
                 user_id,
-                "📢 <b>YANGILIK!</b>\n\n"
-                + message.text,
+                message.text,
                 parse_mode="HTML"
             )
-
             success += 1
-
-        except:
+        except Exception:
             failed += 1
 
     bot.send_message(
         message.chat.id,
-        f"✅ Yangilik yuborildi!\n\n"
-        f"👥 Yuborildi: {success}\n"
-        f"❌ Yuborilmadi: {failed}",
+        f"""✅ Yangilik yuborildi!
+
+👥 Yuborildi: {success}
+❌ Yuborilmadi: {failed}""",
         reply_markup=admin_menu()
     )
 
@@ -660,10 +547,8 @@ def send_news(message):
 # ASOSIY MENYU
 # ==========================================
 
-@bot.message_handler(func=lambda message:
-                     message.text == "⬅️ Asosiy menyu")
+@bot.message_handler(func=lambda message: message.text == "⬅️ Asosiy menyu")
 def back_main(message):
-
     bot.send_message(
         message.chat.id,
         "⚽ Asosiy menyu",
@@ -675,16 +560,15 @@ def back_main(message):
 # BOT HAQIDA
 # ==========================================
 
-@bot.message_handler(func=lambda message:
-                     message.text == "ℹ️ Bot haqida")
+@bot.message_handler(func=lambda message: message.text == "ℹ️ Bot haqida")
 def about(message):
-
     bot.send_message(
         message.chat.id,
-        "⚽ <b>7-A Futbol Statistikasi</b>\n\n"
-        "Bu bot orqali 1–13 raqamdagi futbolchilarning "
-        "statistikalarini ko'rish mumkin.\n\n"
-        "🔐 Futbolchilarni faqat admin qo'sha oladi.",
+        """⚽ <b>7-A Futbol Statistikasi</b>
+
+Bu bot orqali 1–13 raqamdagi futbolchilarning statistikalarini ko'rish mumkin.
+
+🔐 Futbolchilarni faqat admin qo'sha oladi.""",
         parse_mode="HTML"
     )
 
@@ -693,13 +577,11 @@ def about(message):
 # YANGILIKLAR
 # ==========================================
 
-@bot.message_handler(func=lambda message:
-                     message.text == "📢 Yangiliklar")
+@bot.message_handler(func=lambda message: message.text == "📢 Yangiliklar")
 def news(message):
-
     bot.send_message(
         message.chat.id,
-        "📢 Hozircha yangi yangiliklar yo'q."
+        """📢 Hozircha yangi yangiliklar yo'q."""
     )
 
 
@@ -707,6 +589,6 @@ def news(message):
 # ISHGA TUSHIRISH
 # ==========================================
 
-print("🤖 BOT ISHLADI!")
-
-bot.infinity_polling()
+if __name__ == "__main__":
+    print("🤖 BOT ISHLADI!")
+    bot.infinity_polling()
